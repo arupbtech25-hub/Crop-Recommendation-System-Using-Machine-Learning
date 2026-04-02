@@ -2,51 +2,60 @@ import streamlit as st
 import numpy as np
 import pickle
 
-# Load model & scalers
-model = pickle.load(open('model.pkl', 'rb'))
-sc = pickle.load(open('standscaler.pkl', 'rb'))
-ms = pickle.load(open('minmaxscaler.pkl', 'rb'))
+# ---------------- LOAD MODEL ----------------
+try:
+    model = pickle.load(open('model.pkl', 'rb'))
+    sc = pickle.load(open('standscaler.pkl', 'rb'))
+    ms = pickle.load(open('minmaxscaler.pkl', 'rb'))
+except:
+    st.error("❌ Model or scaler files not found!")
+    st.stop()
 
+# ---------------- PAGE CONFIG ----------------
 st.set_page_config(page_title="Crop Recommendation", layout="wide")
 
-st.markdown("<h1 style='text-align: center; color: green;'>🌱 Crop Recommendation</h1>", unsafe_allow_html=True)
+st.markdown(
+    "<h1 style='text-align: center; color: green;'>🌱 Crop Recommendation</h1>",
+    unsafe_allow_html=True
+)
 
-# Layout
+st.markdown("### Enter Soil & Weather Details")
+
+# ---------------- INPUT LAYOUT ----------------
 col1, col2 = st.columns(2)
 
 with col1:
-    N = st.number_input("Nitrogen", value=90.0)
-    temp = st.number_input("Temperature (°C)", value=28.0)
-    rainfall = st.number_input("Rainfall (mm)", value=150.0)
+    N = st.number_input("Nitrogen", min_value=0.0, value=90.0)
+    temp = st.number_input("Temperature (°C)", min_value=0.0, value=28.0)
+    rainfall = st.number_input("Rainfall (mm)", min_value=0.0, value=150.0)
 
 with col2:
-    P = st.number_input("Phosphorus", value=45.0)
-    K = st.number_input("Potassium", value=45.0)
-    humidity = st.number_input("Humidity (%)", value=80.0)
-    ph = st.number_input("pH", value=6.5)
+    P = st.number_input("Phosphorus", min_value=0.0, value=45.0)
+    K = st.number_input("Potassium", min_value=0.0, value=45.0)
+    humidity = st.number_input("Humidity (%)", min_value=0.0, value=80.0)
+    ph = st.number_input("pH", min_value=0.0, value=6.5)
 
-# Button center
-c1, c2, c3 = st.columns([1,2,1])
+# ---------------- BUTTON ----------------
+c1, c2, c3 = st.columns([1, 2, 1])
 with c2:
     predict_btn = st.button("Get Recommendation")
 
-# Prediction
+# ---------------- PREDICTION ----------------
 if predict_btn:
     try:
-        # ✅ Ensure float conversion
-        feature_list = [float(N), float(P), float(K), float(temp), float(humidity), float(ph), float(rainfall)]
-        single_pred = np.array(feature_list).reshape(1, -1)
+        # Feature order MUST match training
+        features = np.array([
+            float(N), float(P), float(K),
+            float(temp), float(humidity),
+            float(ph), float(rainfall)
+        ]).reshape(1, -1)
 
-        st.write("🔍 Input Features:", feature_list)
-
-        # ✅ Scaling
-        scaled = ms.transform(single_pred)
+        # Scaling
+        scaled = ms.transform(features)
         final = sc.transform(scaled)
 
-        st.write("🔍 After Scaling:", final)
-
+        # Prediction
         prediction = model.predict(final)
-        st.write("🔍 Raw Prediction:", prediction)
 
         crop_dict = {
             1: "Rice", 2: "Maize", 3: "Jute", 4: "Cotton", 5: "Coconut",
@@ -59,6 +68,14 @@ if predict_btn:
 
         st.markdown("---")
 
-        if prediction[0] in crop_dict:
-            crop = crop_dict[prediction[0]]
-            st.success(f"🌾 Recommended Crop
+        pred_value = int(prediction[0])
+
+        if pred_value in crop_dict:
+            crop = crop_dict[pred_value]
+            st.success(f"🌾 Recommended Crop: {crop}")
+            st.balloons()
+        else:
+            st.error("❌ Could not determine crop")
+
+    except Exception as e:
+        st.error(f"❌ Error during prediction: {e}")
